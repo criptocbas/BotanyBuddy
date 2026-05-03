@@ -27,7 +27,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY")!;
 const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
-const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:hello@grokgarden.app";
+const VAPID_SUBJECT = Deno.env.get("VAPID_SUBJECT") ?? "mailto:hello@botanybuddy.app";
 const CRON_SHARED_SECRET = Deno.env.get("CRON_SHARED_SECRET") ?? "";
 
 webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);

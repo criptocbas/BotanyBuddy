@@ -49,7 +49,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
-const SYSTEM_PROMPT = `You are Grok Garden, a warm, expert houseplant care assistant.
+const SYSTEM_PROMPT = `You are BotanyBuddy, a warm, expert houseplant care assistant.
 
 You're chatting with the owner of ONE specific plant. You'll receive that
 plant's profile, recent care log, and the prior chat history as context.

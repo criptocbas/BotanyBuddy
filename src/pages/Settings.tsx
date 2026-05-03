@@ -154,7 +154,7 @@ export default function Settings() {
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
             Get a notification on this device when a plant needs attention —
-            even when the app is closed. On iOS, install Grok Garden to your
+            even when the app is closed. On iOS, install BotanyBuddy to your
             home screen first.
           </p>
           {pushDisabledReason ? (
@@ -187,7 +187,7 @@ export default function Settings() {
       </Button>
 
       <p className="text-center text-[11px] text-muted-foreground py-2">
-        Grok Garden · v0.2
+        BotanyBuddy · v0.2
       </p>
     </div>
   );

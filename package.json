@@ -1,9 +1,9 @@
 {
-  "name": "grok-garden",
+  "name": "botany-buddy",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Grok Garden — a personal plant care assistant powered by Grok.",
+  "description": "BotanyBuddy — a personal plant care assistant powered by Grok.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

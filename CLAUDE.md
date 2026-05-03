@@ -7,7 +7,7 @@ on this repo. Read this first.
 
 ## What this is
 
-**Grok Garden** — a personal plant care PWA. The user adds their houseplants,
+**BotanyBuddy** — a personal plant care PWA. The user adds their houseplants,
 takes photos, and gets specific care advice from xAI Grok that knows each
 plant's species, pot, drainage, and full history. Mobile-first, installable,
 works offline for viewing.

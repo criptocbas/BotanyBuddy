@@ -23,8 +23,8 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       manifest: {
-        name: "Grok Garden",
-        short_name: "Grok Garden",
+        name: "BotanyBuddy",
+        short_name: "BotanyBuddy",
         description:
           "Your personal plant care assistant powered by Grok.",
         theme_color: "#1f3a2b",

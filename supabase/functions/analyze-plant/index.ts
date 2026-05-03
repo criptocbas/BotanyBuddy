@@ -80,7 +80,7 @@ interface PriorAdvice {
   created_at: string;
 }
 
-const SYSTEM_PROMPT = `You are Grok Garden, an expert, warm, and precise houseplant care assistant.
+const SYSTEM_PROMPT = `You are BotanyBuddy, an expert, warm, and precise houseplant care assistant.
 
 You are helping the owner of ONE specific plant. Always tailor advice to:
 - The exact species

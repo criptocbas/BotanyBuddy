@@ -1,4 +1,4 @@
-# Grok Garden 🌿
+# BotanyBuddy 🌿
 
 A personal plant care assistant. Add your houseplants, take photos, and get
 specific advice from **Grok** (xAI) that knows each plant's species, pot,

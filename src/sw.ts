@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-// Custom service worker for Grok Garden.
+// Custom service worker for BotanyBuddy.
 // - Precaches the app shell using the manifest injected by vite-plugin-pwa.
 // - Runtime-caches plant photos so the app works offline for viewing.
 // - Handles web push notifications + click → open the right plant page.
@@ -62,10 +62,10 @@ self.addEventListener("push", (event) => {
   try {
     payload = event.data.json() as PushPayload;
   } catch {
-    payload = { title: "Grok Garden", body: event.data.text() };
+    payload = { title: "BotanyBuddy", body: event.data.text() };
   }
 
-  const title = payload.title ?? "Grok Garden";
+  const title = payload.title ?? "BotanyBuddy";
   const options: NotificationOptions = {
     body: payload.body,
     icon: "/icon-192.png",

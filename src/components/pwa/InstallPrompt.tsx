@@ -40,7 +40,7 @@ export function InstallPrompt() {
   return (
     <div className="rounded-xl border border-leaf-200 bg-leaf-50 dark:bg-leaf-900/30 dark:border-leaf-800 p-3 flex items-center gap-3 mb-3">
       <div className="flex-1 text-sm">
-        <div className="font-medium">Install Grok Garden</div>
+        <div className="font-medium">Install BotanyBuddy</div>
         <div className="text-muted-foreground text-xs">
           Add it to your home screen for quick access and reminders.
         </div>

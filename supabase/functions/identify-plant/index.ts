@@ -37,7 +37,7 @@ function json(body: unknown, status = 200) {
   });
 }
 
-const SYSTEM_PROMPT = `You are Grok Garden, an expert houseplant identification and care assistant.
+const SYSTEM_PROMPT = `You are BotanyBuddy, an expert houseplant identification and care assistant.
 
 The user has just taken or picked a photo of a plant they own. They have given you NOTHING else — no name, no species, no history. Your job is to identify what it is and give a brief starter assessment.
 

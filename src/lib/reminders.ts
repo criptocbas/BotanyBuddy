@@ -169,7 +169,7 @@ export async function scheduleLocalReminder(
       const reg = await navigator.serviceWorker?.getRegistration();
       if (reg) {
         reg.showNotification(`${plantName} — ${action}`, {
-          body: "Tap to open Grok Garden.",
+          body: "Tap to open BotanyBuddy.",
           icon: "/icon-192.png",
           badge: "/icon-192.png",
           tag: `plant-${plantName}`,

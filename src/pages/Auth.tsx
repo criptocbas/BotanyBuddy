@@ -42,7 +42,7 @@ export default function AuthPage() {
           <div className="h-12 w-12 rounded-2xl bg-leaf-600 text-white flex items-center justify-center mb-2">
             <Sprout className="h-6 w-6" />
           </div>
-          <CardTitle className="font-display text-2xl">Grok Garden</CardTitle>
+          <CardTitle className="font-display text-2xl">BotanyBuddy</CardTitle>
           <CardDescription>
             Your personal plant care assistant. Powered by Grok.
           </CardDescription>
