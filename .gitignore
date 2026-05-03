@@ -1,0 +1,43 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build artifacts
+dist
+dist-ssr
+build
+*.tsbuildinfo
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Supabase
+supabase/.temp
+supabase/.branches
+.supabase
+
+# PWA generated
+dev-dist

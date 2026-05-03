@@ -1,0 +1,99 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 110 20% 97%;
+    --foreground: 145 30% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 145 30% 12%;
+
+    --primary: 142 38% 28%;
+    --primary-foreground: 110 20% 97%;
+
+    --secondary: 110 25% 90%;
+    --secondary-foreground: 145 30% 12%;
+
+    --muted: 110 18% 92%;
+    --muted-foreground: 145 12% 35%;
+
+    --accent: 130 35% 88%;
+    --accent-foreground: 145 30% 12%;
+
+    --destructive: 0 70% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 140 15% 86%;
+    --input: 140 15% 86%;
+    --ring: 142 38% 35%;
+
+    --radius: 0.85rem;
+  }
+
+  .dark {
+    --background: 150 30% 6%;
+    --foreground: 110 20% 92%;
+
+    --card: 150 25% 9%;
+    --card-foreground: 110 20% 92%;
+
+    --primary: 130 45% 55%;
+    --primary-foreground: 150 30% 8%;
+
+    --secondary: 150 20% 14%;
+    --secondary-foreground: 110 20% 92%;
+
+    --muted: 150 18% 14%;
+    --muted-foreground: 130 10% 65%;
+
+    --accent: 145 25% 18%;
+    --accent-foreground: 110 20% 92%;
+
+    --destructive: 0 60% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 150 20% 18%;
+    --input: 150 20% 18%;
+    --ring: 130 45% 55%;
+  }
+
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "ss01", "cv11";
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top), 0.5rem);
+  }
+  .glass {
+    @apply backdrop-blur-md bg-background/70 border border-border/60;
+  }
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--accent)) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+}
