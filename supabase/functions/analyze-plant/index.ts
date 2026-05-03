@@ -80,37 +80,30 @@ interface PriorAdvice {
   created_at: string;
 }
 
-const SYSTEM_PROMPT = `You are Grok Garden, a kind, expert houseplant-care assistant.
+const SYSTEM_PROMPT = `You are Grok Garden, an expert, warm, and precise houseplant care assistant.
 
-You help the owner of a single plant decide what to do next. The owner will
-share the plant's full history (species, pot, drainage, location, prior care
-log, prior photos, prior assessments) and a NEW photo. Be specific to *this*
-plant — not generic advice.
+You are helping the owner of ONE specific plant. Always tailor advice to:
+- The exact species
+- Pot type and drainage situation (especially "no drainage" = high risk of rot)
+- Recent care history
+- Current photo
 
-Always answer in valid JSON matching this schema:
+Be honest: if the plant looks healthy, say so. If something looks wrong, explain why.
+
+Answer ONLY in valid JSON matching this exact schema (no extra text):
 
 {
-  "status": "Healthy" | "Needs water soon" | "Needs water now" | "Overwatered" |
-            "Concern" | "Pest" | "Repot soon" | "Recovering" | "Unclear",
-  "summary": "1-2 short sentences describing what you see in the photo.",
-  "observations": ["bullet 1", "bullet 2"],            // what you notice
-  "watering": "specific watering guidance for THIS plant",
-  "light":    "specific light guidance",
-  "humidity": "specific humidity guidance",
-  "problems": ["e.g. yellow leaves: ...", ...],         // [] if none
-  "repotting": "advice on repotting / drainage if relevant, else empty string",
-  "next_action":     "ONE short imperative line, e.g. 'Water lightly tomorrow'.",
-  "next_action_in_days": <integer> // when to do next_action; 0 = today, null if none
-}
-
-Rules:
-- Tailor everything to the plant species, the pot/drainage situation, and the
-  recent care log. A snake plant in terracotta is very different from a pothos
-  in a no-drainage pot.
-- If the photo is unclear, set status="Unclear" and ask for a better angle in
-  "next_action".
-- Never invent a problem you can't see. If the plant looks fine, say so.
-- Keep tone warm and direct. No emojis. No markdown.`;
+  "status": "Healthy" | "Needs water soon" | "Needs water now" | "Overwatered" | "Concern" | "Pest" | "Repot soon" | "Recovering" | "Unclear",
+  "summary": "1-2 short sentences about the current photo and plant condition.",
+  "observations": ["bullet point 1", "bullet point 2"],
+  "watering": "specific advice for this plant right now",
+  "light": "light recommendation",
+  "humidity": "humidity recommendation",
+  "problems": ["problem: explanation", ...] or [],
+  "repotting": "repotting/drainage advice or empty string",
+  "next_action": "One clear, actionable sentence (e.g. 'Water lightly today' or 'Mist leaves daily')",
+  "next_action_in_days": number | null   // 0 = today, 3 = in 3 days, null = no specific action
+}`;
 
 function buildUserPrompt(
   plant: Plant,
@@ -153,27 +146,25 @@ function buildUserPrompt(
 -------------
 Name: ${plant.name}
 Species: ${plant.species ?? "unknown"}
-Pot: ${plant.pot_type ?? "unknown"} | Drainage: ${plant.drainage ? "yes" : "NO drainage hole"}
-Light: ${plant.light ?? "unknown"}
+Pot: ${plant.pot_type ?? "unknown"} | Drainage: ${plant.drainage ? "Yes" : "NO DRAINAGE HOLES — HIGH RISK"}
+Light preference: ${plant.light ?? "unknown"}
 Location: ${plant.location ?? "unknown"}
-Owner notes: ${plant.notes ?? "(none)"}
-User-set watering interval: ${plant.watering_interval_days ?? "auto"} days
-User-set fertilizing interval: ${plant.fertilizing_interval_days ?? "auto"} days
-Owner has had this plant for: ${ageDays} days
+Notes: ${plant.notes ?? "(none)"}
+Age: ${ageDays} days
 
 Recent care log (most recent first)
 -----------------------------------
-${recentLogs.length ? recentLogs.join("\n") : "  (no entries yet)"}
+${recentLogs.length ? recentLogs.join("\n") : "  (none yet)"}
 
 Recent photos
 -------------
-${recentPhotos.length ? recentPhotos.join("\n") : "  (this is the first photo)"}
+${recentPhotos.length ? recentPhotos.join("\n") : "  (first photo)"}
 
-Prior assessments from you
---------------------------
-${advice.length ? advice.join("\n") : "  (none yet)"}
+Previous Grok advice
+--------------------
+${advice.length ? advice.join("\n") : "  (none)"}
 
-User question (optional): ${question ?? "(none — give a full assessment)"}`;
+User question: ${question ?? "Give a full current assessment and next action."}`;
 }
 
 async function callGrok(
