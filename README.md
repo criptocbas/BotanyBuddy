@@ -180,6 +180,73 @@ Re-run `supabase functions deploy analyze-plant` whenever you change it.
 
 ---
 
+## Push notifications (optional but recommended)
+
+Web Push reminders fire even when the app is closed. Setup is one-time.
+
+### 1. Generate VAPID keys
+
+```bash
+npx web-push generate-vapid-keys
+```
+
+Copy the **public** key into both `.env` (`VITE_VAPID_PUBLIC_KEY`) and the
+Supabase function secret `VAPID_PUBLIC_KEY`. Copy the **private** key into the
+Supabase secret `VAPID_PRIVATE_KEY` only.
+
+### 2. Set Supabase secrets
+
+```bash
+supabase secrets set \
+  VAPID_PUBLIC_KEY=BJ... \
+  VAPID_PRIVATE_KEY=k... \
+  VAPID_SUBJECT=mailto:you@example.com \
+  SERVICE_ROLE_KEY=$(supabase projects api-keys --project-ref YOUR-REF | grep service_role | awk '{print $2}') \
+  CRON_SHARED_SECRET=$(openssl rand -hex 32)
+```
+
+### 3. Deploy the reminder + chat functions
+
+```bash
+supabase functions deploy send-due-reminders --no-verify-jwt
+supabase functions deploy chat
+```
+
+### 4. Schedule the reminder cron (Supabase SQL editor)
+
+```sql
+-- Enable extensions if not already on (Supabase has them, just need to enable)
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+
+-- Run every 15 minutes
+select cron.schedule(
+  'grok-garden-send-reminders',
+  '*/15 * * * *',
+  $$
+  select net.http_post(
+    url     := 'https://YOUR-PROJECT.supabase.co/functions/v1/send-due-reminders',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'X-Cron-Secret', 'PASTE-YOUR-CRON_SHARED_SECRET-HERE'
+    ),
+    body    := '{}'::jsonb
+  );
+  $$
+);
+```
+
+### 5. Turn on push from the app
+
+Settings → **Push notifications → Enable**. The browser will prompt for
+permission; on iOS install the PWA to the home screen first (Share → Add to
+Home Screen). Each device you enable shows up as its own subscription so you
+can have e.g. phone + laptop both notified.
+
+> **Tip:** the cron also handles the "watering past due" case automatically
+> based on each plant's `watering_interval_days`. You don't need to ask Grok
+> for advice to get watering reminders.
+
 ## Extending
 
 A few places designed to be easy to grow into:
@@ -210,6 +277,8 @@ A few places designed to be easy to grow into:
 | `npm run preview` | Preview the production build locally |
 | `npm run lint` | TypeScript check (no emit) |
 | `npm run supabase:deploy:fn` | Deploy the `analyze-plant` edge function |
+| `supabase functions deploy chat` | Deploy the per-plant chat function |
+| `supabase functions deploy send-due-reminders --no-verify-jwt` | Deploy the cron-callable reminder function |
 
 ---
 

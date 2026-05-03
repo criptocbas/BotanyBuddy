@@ -220,3 +220,115 @@ left join lateral (
 ) ga on true;
 
 grant select on public.plants_with_status to authenticated;
+
+-- ===========================================================================
+-- v2 additions: chat threads, push notifications, reminder bookkeeping
+-- (Idempotent — safe to re-run.)
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- chat_messages: per-plant conversation thread with Grok
+-- ---------------------------------------------------------------------------
+do $$ begin
+  create type chat_role as enum ('user','assistant','system');
+exception when duplicate_object then null; end $$;
+
+create table if not exists public.chat_messages (
+  id uuid primary key default uuid_generate_v4(),
+  plant_id uuid not null references public.plants(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role chat_role not null,
+  content text not null,
+  photo_id uuid references public.plant_photos(id) on delete set null,
+  model text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists chat_messages_plant_idx
+  on public.chat_messages(plant_id, created_at asc);
+
+alter table public.chat_messages enable row level security;
+drop policy if exists "chat_messages owner all" on public.chat_messages;
+create policy "chat_messages owner all" on public.chat_messages
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- push_subscriptions: one row per browser/device that opted in
+-- ---------------------------------------------------------------------------
+create table if not exists public.push_subscriptions (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  endpoint text not null,
+  p256dh text not null,
+  auth text not null,
+  user_agent text,
+  created_at timestamptz not null default now(),
+  unique (user_id, endpoint)
+);
+
+create index if not exists push_subscriptions_user_idx
+  on public.push_subscriptions(user_id);
+
+alter table public.push_subscriptions enable row level security;
+drop policy if exists "push_subscriptions owner all" on public.push_subscriptions;
+create policy "push_subscriptions owner all" on public.push_subscriptions
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- ---------------------------------------------------------------------------
+-- reminder bookkeeping: mark advice rows as already-notified so the cron
+-- doesn't re-spam, and keep a watering-due notified-at on plants.
+-- ---------------------------------------------------------------------------
+alter table public.grok_advice
+  add column if not exists notified_at timestamptz;
+
+alter table public.plants
+  add column if not exists last_water_due_notified_at timestamptz;
+
+create index if not exists grok_advice_due_idx
+  on public.grok_advice(next_action_at)
+  where notified_at is null and next_action_at is not null;
+
+-- ---------------------------------------------------------------------------
+-- Helper view: rows the reminder cron should consider sending right now.
+-- Combines (a) any unnotified Grok next-actions whose time has come and
+-- (b) any plants that are past due based on watering interval.
+-- ---------------------------------------------------------------------------
+create or replace view public.due_reminders as
+-- (a) Grok-recommended next actions
+select
+  ga.user_id,
+  ga.plant_id,
+  p.name           as plant_name,
+  ga.next_action   as title,
+  'grok'           as source,
+  ga.id            as advice_id
+from public.grok_advice ga
+join public.plants p on p.id = ga.plant_id
+where ga.notified_at is null
+  and ga.next_action_at is not null
+  and ga.next_action_at <= now()
+union all
+-- (b) Watering past due based on last water + interval
+select
+  p.user_id,
+  p.id              as plant_id,
+  p.name            as plant_name,
+  'Time to water ' || p.name as title,
+  'water'           as source,
+  null::uuid        as advice_id
+from public.plants p
+left join lateral (
+  select acted_at from public.care_logs
+  where plant_id = p.id and action_type = 'water'
+  order by acted_at desc limit 1
+) lw on true
+where p.watering_interval_days is not null
+  and lw.acted_at is not null
+  and lw.acted_at + (p.watering_interval_days || ' days')::interval <= now()
+  and (
+    p.last_water_due_notified_at is null
+    or p.last_water_due_notified_at < lw.acted_at
+  );
+
+grant select on public.due_reminders to service_role;
+

@@ -12,8 +12,16 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       registerType: "autoUpdate",
       includeAssets: ["icon.svg", "apple-touch-icon.png", "robots.txt"],
+      injectManifest: {
+        // Cache static assets; runtime caching for photos is set up in sw.ts.
+        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+      },
       manifest: {
         name: "Grok Garden",
         short_name: "Grok Garden",
@@ -33,32 +41,6 @@ export default defineConfig({
             sizes: "512x512",
             type: "image/png",
             purpose: "any maskable",
-          },
-        ],
-      },
-      workbox: {
-        globPatterns: ["**/*.{js,css,html,svg,png,ico,webmanifest}"],
-        navigateFallback: "/index.html",
-        runtimeCaching: [
-          {
-            // Cache plant photos so the app works offline for viewing.
-            urlPattern: ({ url }) =>
-              url.hostname.endsWith(".supabase.co") &&
-              url.pathname.includes("/storage/"),
-            handler: "CacheFirst",
-            options: {
-              cacheName: "plant-photos",
-              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            // Don't cache Grok analysis or Supabase data — always fresh.
-            urlPattern: ({ url }) =>
-              url.pathname.includes("/functions/v1/") ||
-              url.pathname.includes("/rest/v1/") ||
-              url.pathname.includes("/auth/v1/"),
-            handler: "NetworkOnly",
           },
         ],
       },

@@ -90,3 +90,26 @@ export interface PlantWithStatus extends Plant {
   latest_next_action_at: string | null;
   latest_advice_at: string | null;
 }
+
+export type ChatRole = "user" | "assistant" | "system";
+
+export interface ChatMessage {
+  id: string;
+  plant_id: string;
+  user_id: string;
+  role: ChatRole;
+  content: string;
+  photo_id: string | null;
+  model: string | null;
+  created_at: string;
+}
+
+export interface PushSubscriptionRow {
+  id: string;
+  user_id: string;
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  user_agent: string | null;
+  created_at: string;
+}
