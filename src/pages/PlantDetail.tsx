@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   Bell,
   Droplet,
-  Loader2,
   MoreVertical,
   Pencil,
   Sparkles,
@@ -38,7 +37,9 @@ import { StatusPill } from "@/components/plants/StatusPill";
 import { EditPlantDialog } from "@/components/plants/EditPlantDialog";
 import { PhotoLightbox } from "@/components/plants/PhotoLightbox";
 import { CareStats } from "@/components/plants/CareStats";
-import { AskGrokDialog } from "@/components/plants/AskGrokDialog";
+import { ChatPanel } from "@/components/plants/ChatPanel";
+import { HealthTrend } from "@/components/plants/HealthTrend";
+import { JournalTab } from "@/components/plants/JournalTab";
 import { usePlant, usePlants } from "@/hooks/usePlants";
 import { computeCareStats } from "@/lib/stats";
 import { derivePlantStatus } from "@/lib/reminders";
@@ -49,7 +50,6 @@ import {
   ensureNotificationPermission,
   scheduleLocalReminder,
 } from "@/lib/reminders";
-import type { PlantPhoto } from "@/lib/types";
 
 export default function PlantDetail() {
   const { id } = useParams<{ id: string }>();
@@ -91,6 +91,7 @@ export default function PlantDetail() {
   const stats = useMemo(() => computeCareStats(logs, advice), [logs, advice]);
 
   // Schedule a local notification when Grok suggests a next-action time.
+  // (Web push is the durable path; this is a best-effort backup.)
   useEffect(() => {
     const latest = advice[0];
     if (!plant || !latest?.next_action_at) return;
@@ -129,17 +130,6 @@ export default function PlantDetail() {
     }
   };
 
-  const onAskGrok = async (photo: PlantPhoto, question: string) => {
-    setAnalyzing(true);
-    try {
-      const out = await analyzeWithGrok(photo, question);
-      haptic("success");
-      return out;
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
   const onDelete = async () => {
     try {
       await deletePlant(plant.id);
@@ -152,7 +142,8 @@ export default function PlantDetail() {
 
   const askForReminders = async () => {
     const perm = await ensureNotificationPermission();
-    if (perm === "granted") toast.success("Reminders enabled.");
+    if (perm === "granted")
+      toast.success("Notifications enabled. Turn on push in Settings for reminders even when the app is closed.");
     else toast.message("Notifications were not granted.");
   };
 
@@ -164,6 +155,10 @@ export default function PlantDetail() {
     } catch (err) {
       toast.error((err as Error).message);
     }
+  };
+
+  const onAddNote = async (notes: string) => {
+    await addLog("observation", notes);
   };
 
   const latestPhoto = photos[0] ?? null;
@@ -197,8 +192,8 @@ export default function PlantDetail() {
                 <DialogTitle>Remove {plant.name}?</DialogTitle>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
-                This will delete all photos, care logs, and Grok analyses for
-                this plant. This can't be undone.
+                This will delete all photos, care logs, chat history, and Grok
+                analyses for this plant. This can't be undone.
               </p>
               <DialogFooter>
                 <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
@@ -257,19 +252,10 @@ export default function PlantDetail() {
       </Card>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Button variant="outline" size="lg" onClick={onLogQuickWater}>
           <Droplet className="h-4 w-4" /> Water
         </Button>
-        <AskGrokDialog
-          latestPhoto={latestPhoto}
-          onAsk={onAskGrok}
-          trigger={
-            <Button variant="outline" size="lg">
-              <Sparkles className="h-4 w-4" /> Ask Grok
-            </Button>
-          }
-        />
         <Button variant="outline" size="lg" onClick={askForReminders}>
           <Bell className="h-4 w-4" /> Remind
         </Button>
@@ -277,11 +263,15 @@ export default function PlantDetail() {
 
       <CareStats stats={stats} />
 
+      <HealthTrend advice={advice} />
+
       <Tabs defaultValue="advice">
-        <TabsList className="w-full grid grid-cols-3">
-          <TabsTrigger value="advice">Advice</TabsTrigger>
-          <TabsTrigger value="history">Care log</TabsTrigger>
-          <TabsTrigger value="photos">Photos</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-5 h-auto">
+          <TabsTrigger value="advice" className="text-xs">Advice</TabsTrigger>
+          <TabsTrigger value="chat" className="text-xs">Chat</TabsTrigger>
+          <TabsTrigger value="journal" className="text-xs">Journal</TabsTrigger>
+          <TabsTrigger value="history" className="text-xs">Care log</TabsTrigger>
+          <TabsTrigger value="photos" className="text-xs">Photos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="advice" className="space-y-3">
@@ -325,6 +315,14 @@ export default function PlantDetail() {
           )}
         </TabsContent>
 
+        <TabsContent value="chat">
+          <ChatPanel plantId={plant.id} latestPhoto={latestPhoto} />
+        </TabsContent>
+
+        <TabsContent value="journal">
+          <JournalTab logs={logs} onAddNote={onAddNote} />
+        </TabsContent>
+
         <TabsContent value="history">
           <Card>
             <CardHeader className="flex-row items-center justify-between">
@@ -358,12 +356,6 @@ export default function PlantDetail() {
           </Card>
         </TabsContent>
       </Tabs>
-
-      {analyzing && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 glass rounded-full px-4 py-2 text-sm shadow-lg flex items-center gap-2 z-30">
-          <Loader2 className="h-4 w-4 animate-spin" /> Asking Grok…
-        </div>
-      )}
 
       {lightboxId && (
         <PhotoLightbox

@@ -7,8 +7,13 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme, type Theme } from "@/hooks/useTheme";
 import { supabase } from "@/lib/supabase";
-import { ensureNotificationPermission } from "@/lib/reminders";
-import { Bell, LogOut, Monitor, Moon, Sun } from "lucide-react";
+import {
+  getPushReadiness,
+  subscribeToPush,
+  unsubscribeFromPush,
+  VAPID_PUBLIC_KEY,
+} from "@/lib/push";
+import { BellOff, BellRing, LogOut, Monitor, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -17,9 +22,12 @@ export default function Settings() {
   const { theme, setTheme } = useTheme();
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
-  const [perm, setPerm] = useState<NotificationPermission>(
-    typeof Notification !== "undefined" ? Notification.permission : "default",
-  );
+  const [pushReady, setPushReady] = useState({
+    supported: false,
+    permission: "default" as NotificationPermission,
+    subscribed: false,
+  });
+  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -30,6 +38,10 @@ export default function Settings() {
       .single()
       .then(({ data }) => setDisplayName(data?.display_name ?? ""));
   }, [user]);
+
+  useEffect(() => {
+    getPushReadiness().then(setPushReady);
+  }, []);
 
   const save = async () => {
     if (!user) return;
@@ -43,12 +55,30 @@ export default function Settings() {
     else toast.success("Profile updated.");
   };
 
-  const enableReminders = async () => {
-    const result = await ensureNotificationPermission();
-    setPerm(result);
-    if (result === "granted") toast.success("Reminders enabled.");
-    else toast.message("Notification permission was not granted.");
+  const onTogglePush = async () => {
+    setPushBusy(true);
+    try {
+      if (pushReady.subscribed) {
+        await unsubscribeFromPush();
+        toast.success("Push notifications turned off on this device.");
+      } else {
+        await subscribeToPush();
+        toast.success("Push notifications turned on.");
+      }
+      setPushReady(await getPushReadiness());
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setPushBusy(false);
+    }
   };
+
+  const pushDisabledReason =
+    !pushReady.supported
+      ? "This browser doesn't support push notifications."
+      : !VAPID_PUBLIC_KEY
+      ? "VITE_VAPID_PUBLIC_KEY is not configured."
+      : null;
 
   return (
     <div className="space-y-4 animate-in fade-in-0 duration-300">
@@ -119,20 +149,33 @@ export default function Settings() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Reminders</CardTitle>
+          <CardTitle className="text-base">Push notifications</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Grok Garden uses your browser's notification system. When you
-            install the app and grant permission, you'll get a heads-up at the
-            time Grok recommends for the next action.
+            Get a notification on this device when a plant needs attention —
+            even when the app is closed. On iOS, install Grok Garden to your
+            home screen first.
           </p>
+          {pushDisabledReason ? (
+            <div className="text-xs rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 p-2 text-amber-800 dark:text-amber-200">
+              {pushDisabledReason}
+            </div>
+          ) : null}
           <Button
-            onClick={enableReminders}
-            variant={perm === "granted" ? "secondary" : "default"}
+            onClick={onTogglePush}
+            disabled={pushBusy || !pushReady.supported || !VAPID_PUBLIC_KEY}
+            variant={pushReady.subscribed ? "outline" : "default"}
           >
-            <Bell className="h-4 w-4" />
-            {perm === "granted" ? "Reminders on" : "Enable reminders"}
+            {pushReady.subscribed ? (
+              <>
+                <BellOff className="h-4 w-4" /> Turn off on this device
+              </>
+            ) : (
+              <>
+                <BellRing className="h-4 w-4" /> Enable push notifications
+              </>
+            )}
           </Button>
         </CardContent>
       </Card>
@@ -144,7 +187,7 @@ export default function Settings() {
       </Button>
 
       <p className="text-center text-[11px] text-muted-foreground py-2">
-        Grok Garden · v0.1
+        Grok Garden · v0.2
       </p>
     </div>
   );

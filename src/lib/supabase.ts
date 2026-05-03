@@ -23,3 +23,7 @@ export const PHOTO_BUCKET = "plant-photos";
 export const ANALYZE_FUNCTION_URL =
   import.meta.env.VITE_ANALYZE_FUNCTION_URL ||
   (url ? `${url}/functions/v1/analyze-plant` : "");
+
+export const CHAT_FUNCTION_URL =
+  import.meta.env.VITE_CHAT_FUNCTION_URL ||
+  (url ? `${url}/functions/v1/chat` : "");
