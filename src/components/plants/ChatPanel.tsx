@@ -52,7 +52,7 @@ export function ChatPanel({ plantId, latestPhoto }: Props) {
       <CardContent className="p-0">
         <div
           ref={scrollerRef}
-          className="max-h-[60vh] overflow-y-auto p-4 space-y-3"
+          className="max-h-[60dvh] overflow-y-auto p-4 space-y-3 scroll-smooth-touch"
         >
           {loading ? (
             <>

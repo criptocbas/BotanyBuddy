@@ -6,7 +6,6 @@ import {
   Droplet,
   MoreVertical,
   Pencil,
-  Sparkles,
   Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +18,6 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
@@ -28,12 +26,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { PhotoUploader } from "@/components/plants/PhotoUploader";
 import { PhotoHistory } from "@/components/plants/PhotoHistory";
 import { CareLogList } from "@/components/plants/CareLogList";
 import { LogActionDialog } from "@/components/plants/LogActionDialog";
 import { GrokAdvicePanel } from "@/components/plants/GrokAdvicePanel";
-import { StatusPill } from "@/components/plants/StatusPill";
+import { PlantHero } from "@/components/plants/PlantHero";
 import { EditPlantDialog } from "@/components/plants/EditPlantDialog";
 import { PhotoLightbox } from "@/components/plants/PhotoLightbox";
 import { CareStats } from "@/components/plants/CareStats";
@@ -208,48 +205,14 @@ export default function PlantDetail() {
         </div>
       </header>
 
-      {/* Hero */}
-      <Card className="overflow-hidden">
-        <button
-          type="button"
-          onClick={() => latestPhoto && setLightboxId(latestPhoto.id)}
-          className="block aspect-[4/3] w-full bg-leaf-100 dark:bg-leaf-900/40 group/hero"
-          aria-label="View latest photo"
-        >
-          {plant.cover_photo_url ? (
-            <img
-              src={plant.cover_photo_url}
-              alt={plant.name}
-              className="h-full w-full object-cover transition-transform duration-500 group-hover/hero:scale-[1.02]"
-            />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center text-leaf-500">
-              <Sparkles className="h-10 w-10" />
-            </div>
-          )}
-        </button>
-        <CardContent className="pt-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="font-display text-2xl font-semibold tracking-tight">
-                {plant.name}
-              </h1>
-              <div className="text-sm text-muted-foreground">
-                {plant.species ?? "Species not set"} · {plant.pot_type ?? "pot"}
-                {" · "}
-                {plant.drainage ? "drains" : "no drainage"}
-                {plant.location ? ` · ${plant.location}` : ""}
-              </div>
-            </div>
-            {status && <StatusPill status={status} />}
-          </div>
-          {status?.detail && (
-            <p className="text-sm mt-2 text-muted-foreground">{status.detail}</p>
-          )}
-          <Separator className="my-4" />
-          <PhotoUploader onUpload={onUpload} analyzing={analyzing} />
-        </CardContent>
-      </Card>
+      <PlantHero
+        plant={plant}
+        latestPhoto={latestPhoto}
+        status={status}
+        onPhotoClick={() => latestPhoto && setLightboxId(latestPhoto.id)}
+        onUpload={onUpload}
+        analyzing={analyzing}
+      />
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-2">
@@ -266,12 +229,12 @@ export default function PlantDetail() {
       <HealthTrend advice={advice} />
 
       <Tabs defaultValue="advice">
-        <TabsList className="w-full grid grid-cols-5 h-auto">
-          <TabsTrigger value="advice" className="text-xs">Advice</TabsTrigger>
-          <TabsTrigger value="chat" className="text-xs">Chat</TabsTrigger>
-          <TabsTrigger value="journal" className="text-xs">Journal</TabsTrigger>
-          <TabsTrigger value="history" className="text-xs">Care log</TabsTrigger>
-          <TabsTrigger value="photos" className="text-xs">Photos</TabsTrigger>
+        <TabsList className="w-full grid grid-cols-5 h-auto px-0.5">
+          <TabsTrigger value="advice" className="text-[11px] sm:text-xs px-1">Advice</TabsTrigger>
+          <TabsTrigger value="chat" className="text-[11px] sm:text-xs px-1">Chat</TabsTrigger>
+          <TabsTrigger value="journal" className="text-[11px] sm:text-xs px-1">Journal</TabsTrigger>
+          <TabsTrigger value="history" className="text-[11px] sm:text-xs px-1">Log</TabsTrigger>
+          <TabsTrigger value="photos" className="text-[11px] sm:text-xs px-1">Photos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="advice" className="space-y-3">

@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
-import { supabase, PHOTO_BUCKET, ANALYZE_FUNCTION_URL } from "@/lib/supabase";
+import {
+  supabase,
+  PHOTO_BUCKET,
+  ANALYZE_FUNCTION_URL,
+  IDENTIFY_FUNCTION_URL,
+} from "@/lib/supabase";
 import type {
   CareAction,
   CareLog,
   GrokAdvice,
   GrokAdviceRecord,
+  IdentifyResult,
   Plant,
   PlantPhoto,
   PlantWithStatus,
 } from "@/lib/types";
+import { defaultWaterInterval } from "@/lib/reminders";
 import { useAuth } from "./useAuth";
 
 export function usePlants() {
@@ -42,7 +49,7 @@ export function usePlants() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`plants-${user.id}`)
+      .channel(`plants-${user.id}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "plants", filter: `user_id=eq.${user.id}` },
@@ -100,7 +107,125 @@ export function usePlants() {
     [user, refresh],
   );
 
-  return { plants, loading, error, refresh, createPlant, deletePlant, quickLog };
+  // Photo-first onboarding: upload the photo to a pending path, ask Grok to
+  // identify it, and return the result. Nothing is committed yet — the
+  // caller decides whether to keep going (commitIdentifiedPlant) or discard.
+  const identifyFromFile = useCallback(
+    async (file: File): Promise<{ result: IdentifyResult; storagePath: string; photoUrl: string }> => {
+      if (!user) throw new Error("Not signed in");
+      if (!IDENTIFY_FUNCTION_URL) {
+        throw new Error("VITE_IDENTIFY_FUNCTION_URL is not configured");
+      }
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${user.id}/_pending/${Date.now()}.${ext}`;
+      const up = await supabase.storage
+        .from(PHOTO_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (up.error) throw up.error;
+      const { data: urlData } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+      const photoUrl = urlData.publicUrl;
+
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("Not signed in");
+      const res = await fetch(IDENTIFY_FUNCTION_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ photoUrl }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error || `Identify error ${res.status}`);
+      return { result: j.result as IdentifyResult, storagePath: path, photoUrl };
+    },
+    [user],
+  );
+
+  // Commit a photo-first identification: create the plant row, the photo row,
+  // and persist the advice — all linked together. Returns the new plant id.
+  const commitIdentifiedPlant = useCallback(
+    async (input: {
+      name: string;
+      species: string | null;
+      result: IdentifyResult;
+      storagePath: string;
+      photoUrl: string;
+    }): Promise<string> => {
+      if (!user) throw new Error("Not signed in");
+      const drainage = true;
+      const watering_interval_days = defaultWaterInterval(input.species, drainage);
+
+      const { data: plant, error: plantErr } = await supabase
+        .from("plants")
+        .insert({
+          user_id: user.id,
+          name: input.name,
+          species: input.species,
+          pot_type: null,
+          drainage,
+          light: input.result.light ?? null,
+          location: null,
+          notes: null,
+          cover_photo_url: input.photoUrl,
+          watering_interval_days,
+          fertilizing_interval_days: 30,
+        })
+        .select()
+        .single();
+      if (plantErr || !plant) throw plantErr ?? new Error("Failed to create plant");
+
+      const { data: photo, error: photoErr } = await supabase
+        .from("plant_photos")
+        .insert({
+          plant_id: plant.id,
+          user_id: user.id,
+          storage_path: input.storagePath,
+          url: input.photoUrl,
+          caption: null,
+        })
+        .select()
+        .single();
+      if (photoErr) throw photoErr;
+
+      let nextActionAt: string | null = null;
+      if (typeof input.result.next_action_in_days === "number") {
+        const d = new Date();
+        d.setDate(d.getDate() + input.result.next_action_in_days);
+        nextActionAt = d.toISOString();
+      }
+
+      const { error: adviceErr } = await supabase.from("grok_advice").insert({
+        plant_id: plant.id,
+        user_id: user.id,
+        photo_id: photo?.id ?? null,
+        summary: input.result.summary ?? null,
+        status: input.result.status ?? null,
+        next_action: input.result.next_action ?? null,
+        next_action_at: nextActionAt,
+        raw: input.result,
+        model: input.result.model ?? null,
+      });
+      if (adviceErr) throw adviceErr;
+
+      await refresh();
+      return plant.id as string;
+    },
+    [user, refresh],
+  );
+
+  return {
+    plants,
+    loading,
+    error,
+    refresh,
+    createPlant,
+    deletePlant,
+    quickLog,
+    identifyFromFile,
+    commitIdentifiedPlant,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -149,7 +274,7 @@ export function usePlant(plantId: string | undefined) {
   useEffect(() => {
     if (!plantId) return;
     const channel = supabase
-      .channel(`plant-${plantId}`)
+      .channel(`plant-${plantId}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "plant_photos", filter: `plant_id=eq.${plantId}` },

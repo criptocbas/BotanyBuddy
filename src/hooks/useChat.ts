@@ -33,7 +33,7 @@ export function useChat(plantId: string | undefined) {
   useEffect(() => {
     if (!plantId) return;
     const channel = supabase
-      .channel(`chat-${plantId}`)
+      .channel(`chat-${plantId}-${crypto.randomUUID()}`)
       .on(
         "postgres_changes",
         {

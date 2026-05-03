@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlantCard } from "@/components/plants/PlantCard";
-import { AddPlantDialog } from "@/components/plants/AddPlantDialog";
+import { AddPlantPhotoFirst } from "@/components/plants/AddPlantPhotoFirst";
 import { TodayDigest } from "@/components/plants/TodayDigest";
 import { SortControl } from "@/components/plants/SortControl";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
@@ -148,7 +148,7 @@ export default function Dashboard() {
               className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
             />
           </Button>
-          <AddPlantDialog
+          <AddPlantPhotoFirst
             trigger={
               <Button size="sm" className="rounded-full px-4">
                 <Plus className="h-4 w-4" /> Add
@@ -246,15 +246,11 @@ function FirstRunEmptyState() {
         Add a plant, snap a photo, and let Grok read the room.
       </p>
       <ol className="text-left max-w-sm mx-auto space-y-2 mb-5">
-        <Step n={1} title="Add a plant" body="Name, species, pot, drainage." />
-        <Step n={2} title="Take a photo" body="Front-and-center is best." />
-        <Step
-          n={3}
-          title="Get Grok's read"
-          body="Personal advice based on your plant's history."
-        />
+        <Step n={1} title="Snap a photo" body="Front-and-center is best." />
+        <Step n={2} title="Grok identifies it" body="Species, condition, next action." />
+        <Step n={3} title="Name it and you're set" body="Care advice tailored from day one." />
       </ol>
-      <AddPlantDialog
+      <AddPlantPhotoFirst
         trigger={
           <Button size="lg">
             <Plus className="h-5 w-5" /> Add a plant

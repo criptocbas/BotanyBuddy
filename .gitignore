@@ -16,6 +16,7 @@ dist
 dist-ssr
 build
 *.tsbuildinfo
+.tsbuild-node
 
 # Local env
 .env

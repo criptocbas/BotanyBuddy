@@ -73,6 +73,22 @@
     @apply bg-background text-foreground;
     font-feature-settings: "ss01", "cv11";
     -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  /* Native app feel: no text-selection on UI chrome, no double-tap zoom on
+     interactive elements, smoother momentum scroll on iOS. */
+  button,
+  [role="button"],
+  [role="tab"],
+  [role="tablist"],
+  nav,
+  label {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  /* Smooth momentum scrolling inside fixed-height scrollers (chat, etc.). */
+  .scroll-smooth-touch {
+    -webkit-overflow-scrolling: touch;
   }
 }
 

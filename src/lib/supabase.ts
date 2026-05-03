@@ -27,3 +27,7 @@ export const ANALYZE_FUNCTION_URL =
 export const CHAT_FUNCTION_URL =
   import.meta.env.VITE_CHAT_FUNCTION_URL ||
   (url ? `${url}/functions/v1/chat` : "");
+
+export const IDENTIFY_FUNCTION_URL =
+  import.meta.env.VITE_IDENTIFY_FUNCTION_URL ||
+  (url ? `${url}/functions/v1/identify-plant` : "");

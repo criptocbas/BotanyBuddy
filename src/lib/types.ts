@@ -82,6 +82,15 @@ export interface GrokAdvice {
   next_action_in_days?: number | null;
 }
 
+export interface IdentifyResult extends GrokAdvice {
+  confidence: "high" | "medium" | "low";
+  species: string | null;
+  common_name: string | null;
+  suggested_name: string | null;
+  model?: string;
+  _raw?: string;
+}
+
 export interface PlantWithStatus extends Plant {
   latest_advice_id: string | null;
   latest_status: string | null;
