@@ -29,11 +29,12 @@ should feel polished, professional, and useful for daily use.
 
 ## Working branch
 
-```
-claude/grok-garden-pwa-cjYX6
-```
+Default branch is `main`. **Branch off `main` for new work**, then open a PR
+back into `main`. Use clear, scoped branch names like `feat/email-reminders`
+or `fix/dashboard-sort`. Don't push directly to `main`.
 
-All work goes here. PR #1 is open against `main`. There is no other branch.
+The original session branch (`claude/grok-garden-pwa-cjYX6`) was deleted
+after PR #3 merged; everything from it is in `main`'s history.
 
 ## What's built (commits f193929 → 761fd7c)
 
@@ -138,8 +139,8 @@ public/                       PWA icons + robots.txt
 - **Mobile-first.** Test layouts at iPhone widths first; widescreen comes
   for free with `container max-w-2xl`.
 - **No emojis in code or commits.** README is fine.
-- **Git**: keep all commits on `claude/grok-garden-pwa-cjYX6`. Push there.
-  Open PRs against `main`. Don't force-push.
+- **Git**: branch off `main`, push the feature branch, open a PR back into
+  `main`. Don't push directly to `main`. Don't force-push.
 - **Schema changes** must stay idempotent (`if not exists`, `do $$ begin
   create type … exception when duplicate_object then null; end $$`, etc.)
   so re-running `schema.sql` is safe.
