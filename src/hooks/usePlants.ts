@@ -83,7 +83,24 @@ export function usePlants() {
     [refresh],
   );
 
-  return { plants, loading, error, refresh, createPlant, deletePlant };
+  // Quick log used by dashboard cards — log without navigating to the plant.
+  const quickLog = useCallback(
+    async (plantId: string, action: CareAction, notes?: string) => {
+      if (!user) throw new Error("Not signed in");
+      const { error } = await supabase.from("care_logs").insert({
+        plant_id: plantId,
+        user_id: user.id,
+        action_type: action,
+        notes: notes ?? null,
+        acted_at: new Date().toISOString(),
+      });
+      if (error) throw error;
+      await refresh();
+    },
+    [user, refresh],
+  );
+
+  return { plants, loading, error, refresh, createPlant, deletePlant, quickLog };
 }
 
 // ---------------------------------------------------------------------------

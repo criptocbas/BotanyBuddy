@@ -6,6 +6,7 @@ import {
   Droplet,
   Loader2,
   MoreVertical,
+  Pencil,
   Sparkles,
   Trash2,
 } from "lucide-react";
@@ -34,14 +35,21 @@ import { CareLogList } from "@/components/plants/CareLogList";
 import { LogActionDialog } from "@/components/plants/LogActionDialog";
 import { GrokAdvicePanel } from "@/components/plants/GrokAdvicePanel";
 import { StatusPill } from "@/components/plants/StatusPill";
+import { EditPlantDialog } from "@/components/plants/EditPlantDialog";
+import { PhotoLightbox } from "@/components/plants/PhotoLightbox";
+import { CareStats } from "@/components/plants/CareStats";
+import { AskGrokDialog } from "@/components/plants/AskGrokDialog";
 import { usePlant, usePlants } from "@/hooks/usePlants";
+import { computeCareStats } from "@/lib/stats";
 import { derivePlantStatus } from "@/lib/reminders";
+import { haptic } from "@/lib/haptics";
 import { toast } from "sonner";
 import { fmtDate } from "@/lib/utils";
 import {
   ensureNotificationPermission,
   scheduleLocalReminder,
 } from "@/lib/reminders";
+import type { PlantPhoto } from "@/lib/types";
 
 export default function PlantDetail() {
   const { id } = useParams<{ id: string }>();
@@ -55,13 +63,14 @@ export default function PlantDetail() {
     loading,
     addLog,
     uploadPhoto,
+    updatePlant,
     analyzeWithGrok,
   } = usePlant(id);
 
   const [analyzing, setAnalyzing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [lightboxId, setLightboxId] = useState<string | null>(null);
 
-  // Build a "PlantWithStatus"-shaped object so we can reuse the deriver.
   const status = useMemo(() => {
     if (!plant) return null;
     const latest = advice[0];
@@ -79,7 +88,9 @@ export default function PlantDetail() {
     );
   }, [plant, advice, logs]);
 
-  // After Grok suggests a next-action time, schedule a local notification.
+  const stats = useMemo(() => computeCareStats(logs, advice), [logs, advice]);
+
+  // Schedule a local notification when Grok suggests a next-action time.
   useEffect(() => {
     const latest = advice[0];
     if (!plant || !latest?.next_action_at) return;
@@ -109,9 +120,21 @@ export default function PlantDetail() {
     setAnalyzing(true);
     try {
       await analyzeWithGrok(photo);
+      haptic("success");
       toast.success("Grok updated this plant's status.");
     } catch (err) {
       toast.error((err as Error).message);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const onAskGrok = async (photo: PlantPhoto, question: string) => {
+    setAnalyzing(true);
+    try {
+      const out = await analyzeWithGrok(photo, question);
+      haptic("success");
+      return out;
     } finally {
       setAnalyzing(false);
     }
@@ -133,62 +156,94 @@ export default function PlantDetail() {
     else toast.message("Notifications were not granted.");
   };
 
+  const onLogQuickWater = async () => {
+    haptic("success");
+    try {
+      await addLog("water");
+      toast.success("Watering logged.");
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  const latestPhoto = photos[0] ?? null;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-in fade-in-0 duration-300">
       <header className="flex items-center justify-between">
         <Button asChild variant="ghost" size="sm">
           <Link to="/">
             <ArrowLeft className="h-4 w-4" /> Back
           </Link>
         </Button>
-        <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Plant menu">
-              <MoreVertical className="h-5 w-5" />
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Remove {plant.name}?</DialogTitle>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              This will delete all photos, care logs, and Grok analyses for this plant. This can't be undone.
-            </p>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
-                Cancel
+        <div className="flex items-center gap-1">
+          <EditPlantDialog
+            plant={plant}
+            onSave={updatePlant}
+            trigger={
+              <Button variant="ghost" size="icon" aria-label="Edit plant">
+                <Pencil className="h-5 w-5" />
               </Button>
-              <Button variant="destructive" onClick={onDelete}>
-                <Trash2 className="h-4 w-4" /> Remove
+            }
+          />
+          <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Plant menu">
+                <MoreVertical className="h-5 w-5" />
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Remove {plant.name}?</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                This will delete all photos, care logs, and Grok analyses for
+                this plant. This can't be undone.
+              </p>
+              <DialogFooter>
+                <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={onDelete}>
+                  <Trash2 className="h-4 w-4" /> Remove
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </header>
 
       {/* Hero */}
       <Card className="overflow-hidden">
-        <div className="aspect-[4/3] w-full bg-leaf-100 dark:bg-leaf-900/40">
+        <button
+          type="button"
+          onClick={() => latestPhoto && setLightboxId(latestPhoto.id)}
+          className="block aspect-[4/3] w-full bg-leaf-100 dark:bg-leaf-900/40 group/hero"
+          aria-label="View latest photo"
+        >
           {plant.cover_photo_url ? (
             <img
               src={plant.cover_photo_url}
               alt={plant.name}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover/hero:scale-[1.02]"
             />
           ) : (
             <div className="h-full w-full flex items-center justify-center text-leaf-500">
               <Sparkles className="h-10 w-10" />
             </div>
           )}
-        </div>
+        </button>
         <CardContent className="pt-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="font-display text-2xl font-semibold">{plant.name}</h1>
+              <h1 className="font-display text-2xl font-semibold tracking-tight">
+                {plant.name}
+              </h1>
               <div className="text-sm text-muted-foreground">
                 {plant.species ?? "Species not set"} · {plant.pot_type ?? "pot"}
                 {" · "}
                 {plant.drainage ? "drains" : "no drainage"}
+                {plant.location ? ` · ${plant.location}` : ""}
               </div>
             </div>
             {status && <StatusPill status={status} />}
@@ -202,20 +257,25 @@ export default function PlantDetail() {
       </Card>
 
       {/* Quick actions */}
-      <div className="grid grid-cols-2 gap-2">
-        <LogActionDialog
+      <div className="grid grid-cols-3 gap-2">
+        <Button variant="outline" size="lg" onClick={onLogQuickWater}>
+          <Droplet className="h-4 w-4" /> Water
+        </Button>
+        <AskGrokDialog
+          latestPhoto={latestPhoto}
+          onAsk={onAskGrok}
           trigger={
             <Button variant="outline" size="lg">
-              <Droplet className="h-4 w-4" /> Log watering
+              <Sparkles className="h-4 w-4" /> Ask Grok
             </Button>
           }
-          onSubmit={addLog}
-          defaultAction="water"
         />
         <Button variant="outline" size="lg" onClick={askForReminders}>
-          <Bell className="h-4 w-4" /> Reminders
+          <Bell className="h-4 w-4" /> Remind
         </Button>
       </div>
+
+      <CareStats stats={stats} />
 
       <Tabs defaultValue="advice">
         <TabsList className="w-full grid grid-cols-3">
@@ -237,7 +297,7 @@ export default function PlantDetail() {
                     <div className="flex items-center justify-between gap-2">
                       <Badge
                         variant={
-                          a.status === "Healthy"
+                          a.status === "Healthy" || a.status === "Recovering"
                             ? "good"
                             : a.status?.startsWith("Needs water")
                             ? "warn"
@@ -290,7 +350,10 @@ export default function PlantDetail() {
               <CardTitle className="text-base">Photos</CardTitle>
             </CardHeader>
             <CardContent>
-              <PhotoHistory photos={photos} />
+              <PhotoHistory
+                photos={photos}
+                onSelect={(p) => setLightboxId(p.id)}
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -300,6 +363,15 @@ export default function PlantDetail() {
         <div className="fixed bottom-24 left-1/2 -translate-x-1/2 glass rounded-full px-4 py-2 text-sm shadow-lg flex items-center gap-2 z-30">
           <Loader2 className="h-4 w-4 animate-spin" /> Asking Grok…
         </div>
+      )}
+
+      {lightboxId && (
+        <PhotoLightbox
+          photos={photos}
+          startId={lightboxId}
+          advice={advice}
+          onClose={() => setLightboxId(null)}
+        />
       )}
     </div>
   );
