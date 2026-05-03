@@ -220,21 +220,23 @@ function PickStep({
   onPick: () => void;
 }) {
   return (
-    <div className="grid gap-4 py-2">
+    <div className="grid gap-4 py-2 min-w-0">
       <button
         type="button"
         onClick={onPick}
-        className="aspect-[4/3] rounded-2xl border-2 border-dashed border-leaf-300 dark:border-leaf-800 bg-leaf-50/50 dark:bg-leaf-950/30 hover:bg-leaf-100/60 dark:hover:bg-leaf-900/40 transition flex flex-col items-center justify-center gap-2 text-leaf-700 dark:text-leaf-200"
+        className="block w-full min-w-0 aspect-[4/3] rounded-2xl border-2 border-dashed border-leaf-300 dark:border-leaf-800 bg-leaf-50/50 dark:bg-leaf-950/30 hover:bg-leaf-100/60 dark:hover:bg-leaf-900/40 transition text-leaf-700 dark:text-leaf-200 px-4"
       >
-        <Camera className="h-8 w-8" />
-        <div className="font-medium">
-          {attempt === 0 ? "Take or choose a photo" : "Try a clearer photo"}
-        </div>
-        <div className="text-xs text-muted-foreground max-w-[80%] text-center">
-          {attempt === 0
-            ? "Front-and-center works best. Grok will identify the species."
-            : "Good light and a clear view of the leaves help a lot."}
-        </div>
+        <span className="flex h-full w-full flex-col items-center justify-center gap-2">
+          <Camera className="h-8 w-8" aria-hidden />
+          <span className="font-medium">
+            {attempt === 0 ? "Take or choose a photo" : "Try a clearer photo"}
+          </span>
+          <span className="text-xs text-muted-foreground text-center max-w-[28ch] text-balance">
+            {attempt === 0
+              ? "Front-and-center works best. Grok will identify the species."
+              : "Good light and a clear view of the leaves help a lot."}
+          </span>
+        </span>
       </button>
     </div>
   );
