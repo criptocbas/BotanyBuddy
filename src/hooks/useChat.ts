@@ -3,6 +3,8 @@ import { supabase, CHAT_FUNCTION_URL } from "@/lib/supabase";
 import type { ChatMessage, PlantPhoto } from "@/lib/types";
 import { useAuth } from "./useAuth";
 
+const HISTORY_LIMIT = 200;
+
 export function useChat(plantId: string | undefined) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -16,12 +18,16 @@ export function useChat(plantId: string | undefined) {
       return;
     }
     setLoading(true);
+    // Fetch the most recent N descending so the SELECT bounds; flip on the
+    // client for natural oldest-first display.
     const { data } = await supabase
       .from("chat_messages")
       .select("*")
       .eq("plant_id", plantId)
-      .order("created_at", { ascending: true });
-    setMessages((data ?? []) as ChatMessage[]);
+      .order("created_at", { ascending: false })
+      .limit(HISTORY_LIMIT);
+    const rows = (data ?? []) as ChatMessage[];
+    setMessages(rows.slice().reverse());
     setLoading(false);
   }, [plantId, user]);
 
@@ -29,11 +35,13 @@ export function useChat(plantId: string | undefined) {
     refresh();
   }, [refresh]);
 
-  // Realtime updates so other devices stay in sync.
+  // Realtime updates so other devices stay in sync. Skip messages we already
+  // have in state — the local optimistic merge covers our own sends, so this
+  // handler only needs to pick up rows from other tabs/devices.
   useEffect(() => {
     if (!plantId) return;
     const channel = supabase
-      .channel(`chat-${plantId}-${crypto.randomUUID()}`)
+      .channel(`chat-${plantId}`)
       .on(
         "postgres_changes",
         {
@@ -42,13 +50,23 @@ export function useChat(plantId: string | undefined) {
           table: "chat_messages",
           filter: `plant_id=eq.${plantId}`,
         },
-        () => refresh(),
+        (payload) => {
+          const row = payload.new as ChatMessage;
+          setMessages((curr) => {
+            if (curr.some((m) => m.id === row.id)) return curr;
+            return [...curr, row].sort(
+              (a, b) =>
+                new Date(a.created_at).getTime() -
+                new Date(b.created_at).getTime(),
+            );
+          });
+        },
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [plantId, refresh]);
+  }, [plantId]);
 
   const send = useCallback(
     async (content: string, photo?: PlantPhoto | null) => {
@@ -57,9 +75,9 @@ export function useChat(plantId: string | undefined) {
         throw new Error("VITE_CHAT_FUNCTION_URL is not configured");
       }
       setSending(true);
-      // Optimistic: show the user message immediately.
+      const optimisticId = `pending-${Date.now()}`;
       const optimistic: ChatMessage = {
-        id: `pending-${Date.now()}`,
+        id: optimisticId,
         plant_id: plantId,
         user_id: user.id,
         role: "user",
@@ -90,16 +108,38 @@ export function useChat(plantId: string | undefined) {
         });
         const j = await res.json();
         if (!res.ok) throw new Error(j.error || `Chat error ${res.status}`);
-        await refresh();
+
+        const userMessage = j.userMessage as ChatMessage | undefined;
+        const assistantMessage = j.message as ChatMessage | undefined;
+
+        // Swap the optimistic placeholder for the real records and append
+        // the assistant reply — no extra SELECT roundtrip needed.
+        setMessages((curr) => {
+          const withoutOptimistic = curr.filter((x) => x.id !== optimisticId);
+          const next = [...withoutOptimistic];
+          if (userMessage && !next.some((x) => x.id === userMessage.id)) {
+            next.push(userMessage);
+          }
+          if (
+            assistantMessage &&
+            !next.some((x) => x.id === assistantMessage.id)
+          ) {
+            next.push(assistantMessage);
+          }
+          return next.sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime(),
+          );
+        });
       } catch (err) {
-        // Roll the optimistic message back so the user can retry.
-        setMessages((m) => m.filter((x) => x.id !== optimistic.id));
+        setMessages((m) => m.filter((x) => x.id !== optimisticId));
         throw err;
       } finally {
         setSending(false);
       }
     },
-    [plantId, user, refresh],
+    [plantId, user],
   );
 
   return { messages, loading, sending, send, refresh };

@@ -8,7 +8,7 @@ import {
   Loader2,
   Sparkles,
 } from "lucide-react";
-import type { CareLog, PlantWithStatus } from "@/lib/types";
+import type { PlantWithStatus } from "@/lib/types";
 import { derivePlantStatus } from "@/lib/reminders";
 import { haptic } from "@/lib/haptics";
 import { useState } from "react";
@@ -16,7 +16,6 @@ import { toast } from "sonner";
 
 interface Props {
   plants: PlantWithStatus[];
-  logsByPlant: Record<string, CareLog[]>;
   onWater: (plantId: string) => Promise<void>;
 }
 
@@ -26,10 +25,10 @@ interface DigestItem {
   severity: "now" | "soon" | "concern";
 }
 
-function buildDigest(plants: PlantWithStatus[], logsByPlant: Record<string, CareLog[]>): DigestItem[] {
+function buildDigest(plants: PlantWithStatus[]): DigestItem[] {
   const items: DigestItem[] = [];
   for (const p of plants) {
-    const status = derivePlantStatus(p, logsByPlant[p.id] ?? []);
+    const status = derivePlantStatus(p, p.last_watered_at ?? null);
     if (status.label === "Needs water now") {
       items.push({ plant: p, reason: status.detail || "Water now", severity: "now" });
     } else if (status.label === "Needs water soon") {
@@ -53,8 +52,8 @@ function buildDigest(plants: PlantWithStatus[], logsByPlant: Record<string, Care
   return items;
 }
 
-export function TodayDigest({ plants, logsByPlant, onWater }: Props) {
-  const items = buildDigest(plants, logsByPlant);
+export function TodayDigest({ plants, onWater }: Props) {
+  const items = buildDigest(plants);
   const [busyPlantId, setBusyPlantId] = useState<string | null>(null);
 
   if (plants.length === 0) return null;

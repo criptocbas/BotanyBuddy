@@ -8,6 +8,7 @@ import {
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { AppShell } from "@/components/layout/AppShell";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -40,49 +41,51 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <ThemeProvider>
-        <AuthProvider>
-          <Suspense fallback={null}>
-            <Routes>
-              <Route
-                path="/auth"
-                element={
-                  <PublicOnly>
-                    <AuthPage />
-                  </PublicOnly>
-                }
-              />
-              <Route
-                path="/"
-                element={
-                  <Protected>
-                    <Dashboard />
-                  </Protected>
-                }
-              />
-              <Route
-                path="/plants/:id"
-                element={
-                  <Protected>
-                    <PlantDetail />
-                  </Protected>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <Protected>
-                    <Settings />
-                  </Protected>
-                }
-              />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
-          <Toaster richColors position="top-center" closeButton />
-        </AuthProvider>
-      </ThemeProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <ThemeProvider>
+          <AuthProvider>
+            <Suspense fallback={null}>
+              <Routes>
+                <Route
+                  path="/auth"
+                  element={
+                    <PublicOnly>
+                      <AuthPage />
+                    </PublicOnly>
+                  }
+                />
+                <Route
+                  path="/"
+                  element={
+                    <Protected>
+                      <Dashboard />
+                    </Protected>
+                  }
+                />
+                <Route
+                  path="/plants/:id"
+                  element={
+                    <Protected>
+                      <PlantDetail />
+                    </Protected>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <Protected>
+                      <Settings />
+                    </Protected>
+                  }
+                />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+            <Toaster richColors position="top-center" closeButton />
+          </AuthProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

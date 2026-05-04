@@ -16,6 +16,7 @@ import type {
   PlantWithStatus,
 } from "@/lib/types";
 import { defaultWaterInterval } from "@/lib/reminders";
+import { resizeImage } from "@/lib/image";
 import { useAuth } from "./useAuth";
 
 export function usePlants() {
@@ -49,7 +50,7 @@ export function usePlants() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`plants-${user.id}-${crypto.randomUUID()}`)
+      .channel(`plants-${user.id}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "plants", filter: `user_id=eq.${user.id}` },
@@ -58,6 +59,11 @@ export function usePlants() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "grok_advice", filter: `user_id=eq.${user.id}` },
+        () => refresh(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "care_logs", filter: `user_id=eq.${user.id}` },
         () => refresh(),
       )
       .subscribe();
@@ -116,11 +122,12 @@ export function usePlants() {
       if (!IDENTIFY_FUNCTION_URL) {
         throw new Error("VITE_IDENTIFY_FUNCTION_URL is not configured");
       }
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const upload = await resizeImage(file);
+      const ext = (upload.name.split(".").pop() || "jpg").toLowerCase();
       const path = `${user.id}/_pending/${Date.now()}.${ext}`;
       const up = await supabase.storage
         .from(PHOTO_BUCKET)
-        .upload(path, file, { contentType: file.type, upsert: false });
+        .upload(path, upload, { contentType: upload.type, upsert: false });
       if (up.error) throw up.error;
       const { data: urlData } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
       const photoUrl = urlData.publicUrl;
@@ -142,6 +149,17 @@ export function usePlants() {
     },
     [user],
   );
+
+  // Best-effort deletion of an unconfirmed _pending photo so storage doesn't
+  // accumulate orphans when the user retries or cancels the dialog.
+  const discardPendingPhoto = useCallback(async (storagePath: string) => {
+    if (!storagePath) return;
+    try {
+      await supabase.storage.from(PHOTO_BUCKET).remove([storagePath]);
+    } catch {
+      /* noop — orphan is harmless, will be cleaned up by future tooling */
+    }
+  }, []);
 
   // Commit a photo-first identification: create the plant row, the photo row,
   // and persist the advice — all linked together. Returns the new plant id.
@@ -225,6 +243,7 @@ export function usePlants() {
     quickLog,
     identifyFromFile,
     commitIdentifiedPlant,
+    discardPendingPhoto,
   };
 }
 
@@ -274,7 +293,7 @@ export function usePlant(plantId: string | undefined) {
   useEffect(() => {
     if (!plantId) return;
     const channel = supabase
-      .channel(`plant-${plantId}-${crypto.randomUUID()}`)
+      .channel(`plant-${plantId}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "plant_photos", filter: `plant_id=eq.${plantId}` },
@@ -328,11 +347,12 @@ export function usePlant(plantId: string | undefined) {
   const uploadPhoto = useCallback(
     async (file: File, caption?: string): Promise<PlantPhoto | null> => {
       if (!plantId || !user) return null;
-      const ext = file.name.split(".").pop() || "jpg";
+      const upload = await resizeImage(file);
+      const ext = upload.name.split(".").pop() || "jpg";
       const path = `${user.id}/${plantId}/${Date.now()}.${ext}`;
       const up = await supabase.storage
         .from(PHOTO_BUCKET)
-        .upload(path, file, { contentType: file.type, upsert: false });
+        .upload(path, upload, { contentType: upload.type, upsert: false });
       if (up.error) throw up.error;
       const { data: urlData } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
       const { data, error } = await supabase

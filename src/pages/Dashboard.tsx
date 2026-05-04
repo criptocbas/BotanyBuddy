@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, RefreshCw, Search, Sprout, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,10 +9,8 @@ import { TodayDigest } from "@/components/plants/TodayDigest";
 import { SortControl } from "@/components/plants/SortControl";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { usePlants } from "@/hooks/usePlants";
-import { useAuth } from "@/hooks/useAuth";
 import { useUiPrefs } from "@/hooks/useUiPrefs";
-import { supabase } from "@/lib/supabase";
-import type { CareLog, PlantWithStatus } from "@/lib/types";
+import type { PlantWithStatus } from "@/lib/types";
 import { derivePlantStatus, type DerivedStatus } from "@/lib/reminders";
 
 const STATUS_PRIORITY: Record<DerivedStatus, number> = {
@@ -29,38 +27,10 @@ const STATUS_PRIORITY: Record<DerivedStatus, number> = {
 };
 
 export default function Dashboard() {
-  const { user } = useAuth();
   const { plants, loading, refresh, quickLog } = usePlants();
   const { prefs, update } = useUiPrefs();
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const [logsByPlant, setLogsByPlant] = useState<Record<string, CareLog[]>>({});
-
-  // Fetch recent care logs per plant once for status derivation.
-  useEffect(() => {
-    if (!user || plants.length === 0) {
-      setLogsByPlant({});
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      const ids = plants.map((p) => p.id);
-      const { data } = await supabase
-        .from("care_logs")
-        .select("*")
-        .in("plant_id", ids)
-        .order("acted_at", { ascending: false });
-      if (cancelled || !data) return;
-      const grouped: Record<string, CareLog[]> = {};
-      for (const log of data as CareLog[]) {
-        (grouped[log.plant_id] ||= []).push(log);
-      }
-      setLogsByPlant(grouped);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user, plants]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return plants;
@@ -85,15 +55,15 @@ export default function Dashboard() {
     } else {
       // smart
       arr.sort((a, b) => {
-        const sa = derivePlantStatus(a, logsByPlant[a.id] ?? []).label;
-        const sb = derivePlantStatus(b, logsByPlant[b.id] ?? []).label;
+        const sa = derivePlantStatus(a, a.last_watered_at ?? null).label;
+        const sb = derivePlantStatus(b, b.last_watered_at ?? null).label;
         const diff = (STATUS_PRIORITY[sa] ?? 99) - (STATUS_PRIORITY[sb] ?? 99);
         if (diff !== 0) return diff;
         return a.name.localeCompare(b.name);
       });
     }
     return arr;
-  }, [filtered, prefs.sort, logsByPlant]);
+  }, [filtered, prefs.sort]);
 
   const grouped = useMemo<Array<{ key: string; items: PlantWithStatus[] }>>(() => {
     if (prefs.group !== "location") {
@@ -162,11 +132,7 @@ export default function Dashboard() {
 
       {!loading && plants.length > 0 && (
         <div className="mb-3">
-          <TodayDigest
-            plants={plants}
-            logsByPlant={logsByPlant}
-            onWater={onWater}
-          />
+          <TodayDigest plants={plants} onWater={onWater} />
         </div>
       )}
 
@@ -220,7 +186,6 @@ export default function Dashboard() {
                   <PlantCard
                     key={plant.id}
                     plant={plant}
-                    recentLogs={logsByPlant[plant.id] ?? []}
                     onQuickWater={onWater}
                   />
                 ))}

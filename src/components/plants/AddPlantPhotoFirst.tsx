@@ -43,7 +43,7 @@ type Step =
 const initialStep: Step = { kind: "pick", attempt: 0 };
 
 export function AddPlantPhotoFirst({ trigger, onCreated }: Props) {
-  const { identifyFromFile, commitIdentifiedPlant } = usePlants();
+  const { identifyFromFile, commitIdentifiedPlant, discardPendingPhoto } = usePlants();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<Step>(initialStep);
   const [name, setName] = useState("");
@@ -60,28 +60,47 @@ export function AddPlantPhotoFirst({ trigger, onCreated }: Props) {
     }
   };
 
+  // Track the active uncommitted storage path so we can delete it from the
+  // bucket on retry / dialog close / unmount. Cleared when the user commits.
+  const pendingPathRef = useRef<string | null>(null);
+  const releasePending = () => {
+    if (pendingPathRef.current) {
+      void discardPendingPhoto(pendingPathRef.current);
+      pendingPathRef.current = null;
+    }
+  };
+
   // Reset internal state when the dialog closes so the next open is fresh.
   useEffect(() => {
     if (!open) {
       releasePreview();
+      releasePending();
       setStep(initialStep);
       setName("");
       setCommitting(false);
     }
   }, [open]);
 
-  // Make sure we don't leak the last preview if the component unmounts.
-  useEffect(() => () => releasePreview(), []);
+  // Make sure we don't leak the last preview / pending photo on unmount.
+  useEffect(
+    () => () => {
+      releasePreview();
+      releasePending();
+    },
+    [],
+  );
 
   const openPicker = () => fileRef.current?.click();
 
   const handleFile = async (file: File, attempt: 0 | 1) => {
     releasePreview();
+    releasePending();
     const preview = URL.createObjectURL(file);
     previewRef.current = preview;
     setStep({ kind: "working", attempt, photoPreview: preview });
     try {
       const { result, storagePath, photoUrl } = await identifyFromFile(file);
+      pendingPathRef.current = storagePath;
       const lowConfidence = result.confidence === "low";
       if (lowConfidence && attempt === 0) {
         setStep({
@@ -139,6 +158,8 @@ export function AddPlantPhotoFirst({ trigger, onCreated }: Props) {
         storagePath: step.storagePath,
         photoUrl: step.photoUrl,
       });
+      // Photo is now owned by the new plant — don't delete it on dialog close.
+      pendingPathRef.current = null;
       toast.success(`${name.trim()} added.`);
       setOpen(false);
       onCreated?.(id);

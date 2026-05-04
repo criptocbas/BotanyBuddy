@@ -71,6 +71,10 @@ export default function PlantDetail() {
   const status = useMemo(() => {
     if (!plant) return null;
     const latest = advice[0];
+    const lastWaterAt =
+      logs.find((l) => l.action_type === "water")?.acted_at ?? null;
+    const lastFertilizeAt =
+      logs.find((l) => l.action_type === "fertilize")?.acted_at ?? null;
     return derivePlantStatus(
       {
         ...plant,
@@ -80,8 +84,10 @@ export default function PlantDetail() {
         latest_next_action: latest?.next_action ?? null,
         latest_next_action_at: latest?.next_action_at ?? null,
         latest_advice_at: latest?.created_at ?? null,
+        last_watered_at: lastWaterAt,
+        last_fertilized_at: lastFertilizeAt,
       },
-      logs,
+      lastWaterAt,
     );
   }, [plant, advice, logs]);
 
@@ -92,14 +98,20 @@ export default function PlantDetail() {
   useEffect(() => {
     const latest = advice[0];
     if (!plant || !latest?.next_action_at) return;
+    let cancel: (() => void) | null = null;
+    let cancelled = false;
     ensureNotificationPermission().then((perm) => {
-      if (perm !== "granted") return;
-      scheduleLocalReminder(
+      if (cancelled || perm !== "granted") return;
+      cancel = scheduleLocalReminder(
         plant.name,
         latest.next_action ?? "Time to check on your plant",
         new Date(latest.next_action_at!),
       );
     });
+    return () => {
+      cancelled = true;
+      cancel?.();
+    };
   }, [plant, advice]);
 
   if (loading || !plant) {

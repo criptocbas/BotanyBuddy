@@ -1,4 +1,4 @@
-import type { CareLog, PlantWithStatus } from "./types";
+import type { PlantWithStatus } from "./types";
 
 export type DerivedStatus =
   | "Healthy"
@@ -63,18 +63,21 @@ export function defaultWaterInterval(
  * Derive a plant's current status combining (a) the latest Grok advice and
  * (b) the local watering schedule. We trust Grok when it has spoken recently;
  * otherwise we fall back to "due to water in X days".
+ *
+ * `lastWateredAt` comes from the `plants_with_status` view's `last_watered_at`
+ * column, or — for places that have the full log array — from
+ * `logs.find(l => l.action_type === 'water')?.acted_at`.
  */
 export function derivePlantStatus(
   plant: PlantWithStatus,
-  recentLogs: CareLog[],
+  lastWateredAt: string | null,
 ): PlantStatus {
-  const lastWater = recentLogs.find((l) => l.action_type === "water");
   const interval =
     plant.watering_interval_days ??
     defaultWaterInterval(plant.species, plant.drainage);
 
-  const nextWaterAt = lastWater
-    ? new Date(new Date(lastWater.acted_at).getTime() + interval * 86_400_000)
+  const nextWaterAt = lastWateredAt
+    ? new Date(new Date(lastWateredAt).getTime() + interval * 86_400_000)
     : null;
 
   // 1. If we have recent Grok advice (< 5 days old), trust its status.
@@ -103,7 +106,7 @@ export function derivePlantStatus(
   }
 
   // 2. Otherwise compute from watering schedule.
-  if (!lastWater) {
+  if (!lastWateredAt) {
     return {
       label: "New plant",
       tone: "neutral",
@@ -153,18 +156,20 @@ export async function ensureNotificationPermission(): Promise<NotificationPermis
   return Notification.permission;
 }
 
-export async function scheduleLocalReminder(
+export function scheduleLocalReminder(
   plantName: string,
   action: string,
   when: Date,
-) {
-  if (!("Notification" in window) || Notification.permission !== "granted") return;
+): () => void {
+  if (!("Notification" in window) || Notification.permission !== "granted") {
+    return () => {};
+  }
   const delay = when.getTime() - Date.now();
-  if (delay <= 0) return;
+  if (delay <= 0) return () => {};
   // setTimeout only fires while a tab is alive. The PWA service worker is
   // limited in pure web push without a server; this is a best-effort reminder
   // that works for as long as the user has the app open or installed.
-  setTimeout(async () => {
+  const id = window.setTimeout(async () => {
     try {
       const reg = await navigator.serviceWorker?.getRegistration();
       if (reg) {
@@ -181,4 +186,5 @@ export async function scheduleLocalReminder(
       /* noop */
     }
   }, Math.min(delay, 2_147_000_000));
+  return () => window.clearTimeout(id);
 }

@@ -98,6 +98,8 @@ export interface PlantWithStatus extends Plant {
   latest_next_action: string | null;
   latest_next_action_at: string | null;
   latest_advice_at: string | null;
+  last_watered_at: string | null;
+  last_fertilized_at: string | null;
 }
 
 export type ChatRole = "user" | "assistant" | "system";

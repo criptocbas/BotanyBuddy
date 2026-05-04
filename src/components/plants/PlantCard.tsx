@@ -7,17 +7,16 @@ import { StatusPill } from "./StatusPill";
 import { derivePlantStatus } from "@/lib/reminders";
 import { haptic } from "@/lib/haptics";
 import { timeUntil } from "@/lib/utils";
-import type { CareLog, PlantWithStatus } from "@/lib/types";
+import type { PlantWithStatus } from "@/lib/types";
 import { toast } from "sonner";
 
 interface Props {
   plant: PlantWithStatus;
-  recentLogs?: CareLog[];
   onQuickWater?: (plantId: string) => Promise<void>;
 }
 
-export function PlantCard({ plant, recentLogs = [], onQuickWater }: Props) {
-  const status = derivePlantStatus(plant, recentLogs);
+export function PlantCard({ plant, onQuickWater }: Props) {
+  const status = derivePlantStatus(plant, plant.last_watered_at ?? null);
   const [busy, setBusy] = useState(false);
 
   const showWater =

@@ -118,13 +118,17 @@ Deno.serve(async (req) => {
 
     // 1. Persist the user message first so the UI can optimistically show it
     //    and so chat history stays consistent if Grok errors out.
-    const { error: insertUserErr } = await supabase.from("chat_messages").insert({
-      plant_id: plantId,
-      user_id: userId,
-      role: "user",
-      content: content.trim(),
-      photo_id: photoId ?? null,
-    });
+    const { data: insertedUser, error: insertUserErr } = await supabase
+      .from("chat_messages")
+      .insert({
+        plant_id: plantId,
+        user_id: userId,
+        role: "user",
+        content: content.trim(),
+        photo_id: photoId ?? null,
+      })
+      .select()
+      .single();
     if (insertUserErr) return json({ error: insertUserErr.message }, 500);
 
     // 2. Load context + chat history (RLS guarantees ownership).
@@ -213,7 +217,7 @@ Deno.serve(async (req) => {
 
     if (insertReplyErr) return json({ error: insertReplyErr.message }, 500);
 
-    return json({ message: inserted });
+    return json({ userMessage: insertedUser, message: inserted });
   } catch (err) {
     return json({ error: (err as Error).message }, 500);
   }

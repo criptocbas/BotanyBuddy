@@ -200,24 +200,44 @@ create policy "plant photos delete own" on storage.objects
   );
 
 -- ---------------------------------------------------------------------------
--- Convenience view: latest advice per plant
+-- Convenience view: latest advice + last care timestamps per plant. The
+-- dashboard reads from this view alone — no separate care_logs roundtrip.
+--
+-- Drop-then-create instead of `create or replace`: when columns are added
+-- to `plants` later (e.g. last_water_due_notified_at), `select p.*` shifts
+-- the column order and `create or replace view` refuses to update it.
 -- ---------------------------------------------------------------------------
-create or replace view public.plants_with_status as
+drop view if exists public.plants_with_status;
+create view public.plants_with_status as
 select
   p.*,
-  ga.id            as latest_advice_id,
-  ga.status        as latest_status,
-  ga.summary       as latest_summary,
-  ga.next_action   as latest_next_action,
+  ga.id             as latest_advice_id,
+  ga.status         as latest_status,
+  ga.summary        as latest_summary,
+  ga.next_action    as latest_next_action,
   ga.next_action_at as latest_next_action_at,
-  ga.created_at    as latest_advice_at
+  ga.created_at     as latest_advice_at,
+  lw.acted_at       as last_watered_at,
+  lf.acted_at       as last_fertilized_at
 from public.plants p
 left join lateral (
   select * from public.grok_advice
   where plant_id = p.id
   order by created_at desc
   limit 1
-) ga on true;
+) ga on true
+left join lateral (
+  select acted_at from public.care_logs
+  where plant_id = p.id and action_type = 'water'
+  order by acted_at desc
+  limit 1
+) lw on true
+left join lateral (
+  select acted_at from public.care_logs
+  where plant_id = p.id and action_type = 'fertilize'
+  order by acted_at desc
+  limit 1
+) lf on true;
 
 grant select on public.plants_with_status to authenticated;
 

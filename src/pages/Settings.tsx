@@ -35,7 +35,7 @@ export default function Settings() {
       .from("profiles")
       .select("display_name")
       .eq("id", user.id)
-      .single()
+      .maybeSingle()
       .then(({ data }) => setDisplayName(data?.display_name ?? ""));
   }, [user]);
 

@@ -48,8 +48,9 @@ export function computeCareStats(
     );
   }
 
-  // Healthy streak: walking newest → oldest, find the start of the run of
-  // consecutive non-bad advice. Streak length = days from that point to now.
+  // Healthy streak: days since the most recent BAD reading. If there have
+  // never been any bad readings, count from the very first reading (the
+  // start of tracking).
   const sortedAdvice = [...advice].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
@@ -59,14 +60,17 @@ export function computeCareStats(
     tone === "Overwatered" ||
     tone === "Needs water now";
 
-  let streakStart: string | null = null;
-  for (const a of sortedAdvice) {
-    if (isBad(a.status)) break;
-    streakStart = a.created_at;
+  let healthyStreakDays = 0;
+  if (sortedAdvice.length > 0) {
+    // If the latest reading is bad, no streak.
+    if (!isBad(sortedAdvice[0].status)) {
+      const lastBad = sortedAdvice.find((a) => isBad(a.status));
+      const streakBoundary = lastBad
+        ? new Date(lastBad.created_at).getTime()
+        : new Date(sortedAdvice[sortedAdvice.length - 1].created_at).getTime();
+      healthyStreakDays = Math.max(0, Math.floor((now - streakBoundary) / DAY));
+    }
   }
-  const healthyStreakDays = streakStart
-    ? Math.floor((now - new Date(streakStart).getTime()) / DAY)
-    : 0;
 
   return {
     totalLogs: logs.length,
