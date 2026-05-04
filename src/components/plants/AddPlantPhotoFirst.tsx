@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Camera, Loader2, RefreshCcw, Sparkles } from "lucide-react";
+import { Camera, Image as ImageIcon, Loader2, RefreshCcw, Sparkles } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -48,7 +48,8 @@ export function AddPlantPhotoFirst({ trigger, onCreated }: Props) {
   const [step, setStep] = useState<Step>(initialStep);
   const [name, setName] = useState("");
   const [committing, setCommitting] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
 
   // Track the active object URL so we can revoke it when it's replaced or
   // when the dialog closes — otherwise each retake leaks a blob.
@@ -90,7 +91,8 @@ export function AddPlantPhotoFirst({ trigger, onCreated }: Props) {
     [],
   );
 
-  const openPicker = () => fileRef.current?.click();
+  const openCamera = () => cameraRef.current?.click();
+  const openGallery = () => galleryRef.current?.click();
 
   const handleFile = async (file: File, attempt: 0 | 1) => {
     releasePreview();
@@ -182,7 +184,15 @@ export function AddPlantPhotoFirst({ trigger, onCreated }: Props) {
         </DialogHeader>
 
         <input
-          ref={fileRef}
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={onFileSelected}
+        />
+        <input
+          ref={galleryRef}
           type="file"
           accept="image/*"
           className="hidden"
@@ -190,7 +200,11 @@ export function AddPlantPhotoFirst({ trigger, onCreated }: Props) {
         />
 
         {step.kind === "pick" && (
-          <PickStep attempt={step.attempt} onPick={openPicker} />
+          <PickStep
+            attempt={step.attempt}
+            onCamera={openCamera}
+            onGallery={openGallery}
+          />
         )}
 
         {step.kind === "working" && (
@@ -200,7 +214,8 @@ export function AddPlantPhotoFirst({ trigger, onCreated }: Props) {
         {step.kind === "low-confidence" && (
           <LowConfidenceStep
             photoPreview={step.photoPreview}
-            onRetry={openPicker}
+            onCamera={openCamera}
+            onGallery={openGallery}
             onAcceptUnknown={() => {
               setName("New plant");
               setStep({
@@ -224,7 +239,8 @@ export function AddPlantPhotoFirst({ trigger, onCreated }: Props) {
             setName={setName}
             committing={committing}
             onCommit={onCommit}
-            onRetake={openPicker}
+            onCamera={openCamera}
+            onGallery={openGallery}
           />
         )}
 
@@ -235,30 +251,36 @@ export function AddPlantPhotoFirst({ trigger, onCreated }: Props) {
 
 function PickStep({
   attempt,
-  onPick,
+  onCamera,
+  onGallery,
 }: {
   attempt: 0 | 1;
-  onPick: () => void;
+  onCamera: () => void;
+  onGallery: () => void;
 }) {
   return (
     <div className="grid gap-4 py-2 min-w-0">
-      <button
-        type="button"
-        onClick={onPick}
-        className="block w-full min-w-0 aspect-[4/3] rounded-2xl border-2 border-dashed border-leaf-300 dark:border-leaf-800 bg-leaf-50/50 dark:bg-leaf-950/30 hover:bg-leaf-100/60 dark:hover:bg-leaf-900/40 transition text-leaf-700 dark:text-leaf-200 px-4"
-      >
-        <span className="flex h-full w-full flex-col items-center justify-center gap-2">
+      <div className="rounded-2xl border-2 border-dashed border-leaf-300 dark:border-leaf-800 bg-leaf-50/50 dark:bg-leaf-950/30 px-4 py-6 text-leaf-700 dark:text-leaf-200">
+        <div className="flex flex-col items-center justify-center gap-2 text-center">
           <Camera className="h-8 w-8" aria-hidden />
-          <span className="font-medium">
-            {attempt === 0 ? "Take or choose a photo" : "Try a clearer photo"}
-          </span>
-          <span className="text-xs text-muted-foreground text-center max-w-[28ch] text-balance">
+          <div className="font-medium">
+            {attempt === 0 ? "Add a photo" : "Try a clearer photo"}
+          </div>
+          <div className="text-xs text-muted-foreground max-w-[28ch] text-balance">
             {attempt === 0
               ? "Front-and-center works best. Grok will identify the species."
               : "Good light and a clear view of the leaves help a lot."}
-          </span>
-        </span>
-      </button>
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <Button type="button" size="lg" onClick={onCamera}>
+          <Camera className="h-5 w-5" /> Take photo
+        </Button>
+        <Button type="button" size="lg" variant="outline" onClick={onGallery}>
+          <ImageIcon className="h-5 w-5" /> Upload photo
+        </Button>
+      </div>
     </div>
   );
 }
@@ -283,11 +305,13 @@ function WorkingStep({ photoPreview }: { photoPreview: string }) {
 
 function LowConfidenceStep({
   photoPreview,
-  onRetry,
+  onCamera,
+  onGallery,
   onAcceptUnknown,
 }: {
   photoPreview: string;
-  onRetry: () => void;
+  onCamera: () => void;
+  onGallery: () => void;
   onAcceptUnknown: () => void;
 }) {
   return (
@@ -307,13 +331,20 @@ function LowConfidenceStep({
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <Button variant="outline" onClick={onAcceptUnknown}>
-          Add as Unknown
+        <Button onClick={onCamera}>
+          <Camera className="h-4 w-4" /> Take photo
         </Button>
-        <Button onClick={onRetry}>
-          <RefreshCcw className="h-4 w-4" /> Try again
+        <Button variant="outline" onClick={onGallery}>
+          <ImageIcon className="h-4 w-4" /> Upload photo
         </Button>
       </div>
+      <button
+        type="button"
+        onClick={onAcceptUnknown}
+        className="text-sm text-muted-foreground hover:text-foreground underline-offset-2 hover:underline mx-auto"
+      >
+        Add as Unknown plant instead
+      </button>
     </div>
   );
 }
@@ -326,7 +357,8 @@ function ConfirmStep({
   setName,
   committing,
   onCommit,
-  onRetake,
+  onCamera,
+  onGallery,
 }: {
   photoPreview: string;
   result: IdentifyResult;
@@ -335,7 +367,8 @@ function ConfirmStep({
   setName: (v: string) => void;
   committing: boolean;
   onCommit: () => void;
-  onRetake: () => void;
+  onCamera: () => void;
+  onGallery: () => void;
 }) {
   const speciesLabel = isUnknown
     ? "Unknown plant"
@@ -378,18 +411,29 @@ function ConfirmStep({
           autoFocus
         />
       </div>
-      <div className="grid grid-cols-[auto,1fr] gap-2">
-        <Button
-          variant="outline"
-          onClick={onRetake}
+      <Button onClick={onCommit} disabled={committing}>
+        {committing ? "Adding…" : "Add plant"}
+      </Button>
+      <div className="flex items-center justify-center gap-4 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <RefreshCcw className="h-3 w-3" /> Retake
+        </span>
+        <button
+          type="button"
+          onClick={onCamera}
           disabled={committing}
-          aria-label="Retake photo"
+          className="hover:text-foreground underline-offset-2 hover:underline inline-flex items-center gap-1"
         >
-          <RefreshCcw className="h-4 w-4" />
-        </Button>
-        <Button onClick={onCommit} disabled={committing}>
-          {committing ? "Adding…" : "Add plant"}
-        </Button>
+          <Camera className="h-3 w-3" /> Camera
+        </button>
+        <button
+          type="button"
+          onClick={onGallery}
+          disabled={committing}
+          className="hover:text-foreground underline-offset-2 hover:underline inline-flex items-center gap-1"
+        >
+          <ImageIcon className="h-3 w-3" /> Gallery
+        </button>
       </div>
     </div>
   );
