@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, CHAT_FUNCTION_URL } from "@/lib/supabase";
 import type { ChatMessage, PlantPhoto } from "@/lib/types";
 import { useAuth } from "./useAuth";
@@ -10,6 +10,7 @@ export function useChat(plantId: string | undefined) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const channelIdRef = useRef<string>(crypto.randomUUID());
 
   const refresh = useCallback(async () => {
     if (!plantId || !user) {
@@ -41,7 +42,7 @@ export function useChat(plantId: string | undefined) {
   useEffect(() => {
     if (!plantId) return;
     const channel = supabase
-      .channel(`chat-${plantId}`)
+      .channel(`chat-${plantId}-${channelIdRef.current}`)
       .on(
         "postgres_changes",
         {

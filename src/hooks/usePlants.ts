@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   supabase,
   PHOTO_BUCKET,
@@ -24,6 +24,10 @@ export function usePlants() {
   const [plants, setPlants] = useState<PlantWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Per-instance suffix so two simultaneous hook instances (e.g. Dashboard
+  // unmounting while PlantDetail mounts) don't collide on the same channel
+  // name and trigger "cannot add postgres_changes callbacks" from Realtime.
+  const channelIdRef = useRef<string>(crypto.randomUUID());
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -50,7 +54,7 @@ export function usePlants() {
   useEffect(() => {
     if (!user) return;
     const channel = supabase
-      .channel(`plants-${user.id}`)
+      .channel(`plants-${user.id}-${channelIdRef.current}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "plants", filter: `user_id=eq.${user.id}` },
@@ -257,6 +261,7 @@ export function usePlant(plantId: string | undefined) {
   const [logs, setLogs] = useState<CareLog[]>([]);
   const [advice, setAdvice] = useState<GrokAdviceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const channelIdRef = useRef<string>(crypto.randomUUID());
 
   const refresh = useCallback(async () => {
     if (!plantId || !user) return;
@@ -293,7 +298,7 @@ export function usePlant(plantId: string | undefined) {
   useEffect(() => {
     if (!plantId) return;
     const channel = supabase
-      .channel(`plant-${plantId}`)
+      .channel(`plant-${plantId}-${channelIdRef.current}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "plant_photos", filter: `plant_id=eq.${plantId}` },
